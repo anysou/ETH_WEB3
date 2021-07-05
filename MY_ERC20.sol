@@ -89,6 +89,9 @@ contract MyERCToken {
 	
 	//2.当函数 approve(address _spender, uint256 _value)成功执行时必须触发的事件
 	event Approval(address indexed _owner, address indexed _spender, uint _value);
+	
+	//3. 将销毁的代币量通知给客户端 
+    event Burn(address indexed from, uint256 value);
 
 	// 合约拥有者、合约主人 (非ERC20标准)
 	address public owner;
@@ -221,16 +224,17 @@ contract MyERCToken {
      * 销毁用户账户中指定个代币
      *-非ERC20标准
      * Remove `_value` tokens from the system irreversibly on behalf of `_from`.
-     * @param _from the address of the sender
-     * @param _value the amount of money to burn
+     * @param _from 销毁的地址
+     * @param _value 销毁量
      */
     function burnFrom(address _from, uint256 _value) public returns (bool success) {
-        require(balanceOf[_from] >= _value);                // Check if the targeted balance is enough
-        require(_value <= allowance[_from][msg.sender]);    // Check allowance
-        balanceOf[_from] -= _value;                         // Subtract from the targeted balance
-        allowance[_from][msg.sender] -= _value;             // Subtract from the sender's allowance
-        totalSupply -= _value;                              // Update totalSupply
-        return true;
+        require(balanceOf[_from] >= _value);                // 检测余额是否充足
+        require(_value <= allowance[_from][msg.sender]);    // 检测代付额度
+        balanceOf[_from] -= _value;                         // 销毁代币
+        allowance[_from][msg.sender] -= _value;             // 销毁代付额度
+        totalSupply -= _value;                              // 从发行的币中删除额度
+        emit Burn(_from, _value);
+		return true;
     }
 	
      /**
@@ -241,9 +245,21 @@ contract MyERCToken {
         require(balanceOf[msg.sender] >= _value);   
         balanceOf[msg.sender] -= _value;
         totalSupply -= _value;
+		emit Burn(msg.sender, _value);
         return true;
     }
 	
+     /**
+     * 批量转账 从自己的账户上给别人转账
+     *-非ERC20标准
+	 * @param _to 转入账户
+	 * @param _value 转账金额
+     */
+    function transferArray(address[] _to, uint256[] _value) public {
+		for(uint256 i = 0; i < _to.length; i++){ 
+            _transfer(msg.sender, _to[i], _value[i]); 
+        }
+    }
 
     // 销毁本合约，调用之后，合约仍然存在于区块链之上，但是函数无法被调用，调用会抛出异常。
     function destroy() public onlyOwner {
